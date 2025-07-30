@@ -1,15 +1,26 @@
 {
-  "name": "realtime-dialog-web",
+  "name": "virtual-girlfriend-realtime-chat",
   "version": "1.0.0",
-  "description": "虚拟女友实时语音对话网页版",
+  "description": "虚拟女友实时语音对话 - 基于DouBao API",
   "main": "proxy-server.js",
   "scripts": {
     "start": "node proxy-server.js",
-    "dev": "node proxy-server.js"
+    "dev": "node proxy-server.js",
+    "build": "echo 'No build step required for static files'"
   },
+  "keywords": [
+    "realtime",
+    "voice-chat",
+    "websocket",
+    "doubao",
+    "virtual-girlfriend"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
   "dependencies": {
     "ws": "^8.14.2"
   },
-  "author": "",
-  "license": "MIT"
+  "engines": {
+    "node": ">=14.0.0"
+  }
 }

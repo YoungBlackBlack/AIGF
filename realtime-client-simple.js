@@ -13,11 +13,11 @@ class RealtimeClient {
         this.isMuted = false;
         this.audioProcessor = null;
         
-        // API配置 - 与config.py保持一致
+        // API配置 - 生产环境使用环境变量
         this.config = {
-            appId: '9047255535',
-            accessKey: '8YrYKqRMJmIYslYKYhBoxki-yhHnYN7U',
-            url: 'ws://localhost:8080'
+            appId: process.env.DOUBAO_APP_ID || '9047255535',
+            accessKey: process.env.DOUBAO_ACCESS_KEY || '8YrYKqRMJmIYslYKYhBoxki-yhHnYN7U',
+            url: window.location.hostname === 'localhost' ? 'ws://localhost:8080' : 'wss://your-websocket-server.com'
         };
         
         this.initAudio();
