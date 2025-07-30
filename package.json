@@ -1,0 +1,15 @@
+{
+  "name": "realtime-dialog-web",
+  "version": "1.0.0",
+  "description": "虚拟女友实时语音对话网页版",
+  "main": "proxy-server.js",
+  "scripts": {
+    "start": "node proxy-server.js",
+    "dev": "node proxy-server.js"
+  },
+  "dependencies": {
+    "ws": "^8.14.2"
+  },
+  "author": "",
+  "license": "MIT"
+}
