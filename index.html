@@ -520,6 +520,23 @@
         .wave-bar.active {
             animation: wave-animation 0.8s ease-in-out infinite;
         }
+
+        .volume-indicator {
+            width: 60%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+
+        .volume-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff88, #ffff00, #ff4757);
+            width: 0%;
+            transition: width 0.1s;
+            border-radius: 2px;
+        }
     </style>
 </head>
 <body>
@@ -563,6 +580,9 @@
         <div class="main-content">
             <div class="avatar-section">
                 <div class="avatar" id="avatar">👧</div>
+                <div class="volume-indicator">
+                    <div class="volume-bar" id="volumeBar"></div>
+                </div>
                 <div class="call-info-text" id="callInfo">小雅在线，随时为你服务💕</div>
                 
                 <div class="call-actions">

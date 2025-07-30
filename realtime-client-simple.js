@@ -203,10 +203,13 @@ class RealtimeClient {
         const bufferLength = analyser.frequencyBinCount;
         const dataArray = new Uint8Array(bufferLength);
         
-        const updateWaveVisualizer = () => {
+        const updateVolumeAndWave = () => {
             if (!this.isInCall) {
-                // 停止时重置所有波形条
+                // 停止时重置
+                const volumeBar = document.getElementById('volumeBar');
                 const waveBars = document.querySelectorAll('.wave-bar');
+                
+                if (volumeBar) volumeBar.style.width = '0%';
                 waveBars.forEach(bar => {
                     bar.style.height = '4px';
                     bar.classList.remove('active');
@@ -215,39 +218,49 @@ class RealtimeClient {
             }
             
             analyser.getByteFrequencyData(dataArray);
+            const average = dataArray.reduce((sum, value) => sum + value, 0) / bufferLength;
+            const volumePercent = (average / 255) * 100;
             
+            // 更新右侧手机界面的音量条
+            const volumeBar = document.getElementById('volumeBar');
+            if (volumeBar) {
+                volumeBar.style.width = volumePercent + '%';
+            }
+            
+            // 更新左侧面板的波形
             const waveBars = document.querySelectorAll('.wave-bar');
-            const segmentSize = Math.floor(bufferLength / waveBars.length);
-            
-            waveBars.forEach((bar, index) => {
-                const start = index * segmentSize;
-                const end = start + segmentSize;
-                let sum = 0;
+            if (waveBars.length > 0) {
+                const segmentSize = Math.floor(bufferLength / waveBars.length);
                 
-                for (let i = start; i < end; i++) {
-                    sum += dataArray[i];
-                }
-                
-                const average = sum / segmentSize;
-                const heightPercent = (average / 255) * 100;
-                const height = Math.max(4, Math.min(30, heightPercent * 0.6));
-                
-                bar.style.height = height + 'px';
-                
-                // 根据音量决定是否激活动画
-                if (average > 20) {
-                    bar.classList.add('active');
-                } else {
-                    bar.classList.remove('active');
-                }
-            });
+                waveBars.forEach((bar, index) => {
+                    const start = index * segmentSize;
+                    const end = start + segmentSize;
+                    let sum = 0;
+                    
+                    for (let i = start; i < end; i++) {
+                        sum += dataArray[i];
+                    }
+                    
+                    const segmentAverage = sum / segmentSize;
+                    const heightPercent = (segmentAverage / 255) * 100;
+                    const height = Math.max(4, Math.min(30, heightPercent * 0.6));
+                    
+                    bar.style.height = height + 'px';
+                    
+                    if (segmentAverage > 20) {
+                        bar.classList.add('active');
+                    } else {
+                        bar.classList.remove('active');
+                    }
+                });
+            }
             
             if (this.isInCall) {
-                requestAnimationFrame(updateWaveVisualizer);
+                requestAnimationFrame(updateVolumeAndWave);
             }
         };
         
-        updateWaveVisualizer();
+        updateVolumeAndWave();
     }
     
     connect() {
@@ -304,7 +317,10 @@ class RealtimeClient {
     
     // 基于Python版本的完整协议实现
     async encodeMessage(eventId, payload, sessionId = null, messageType = 0x01) {
-        console.log(`编码消息: eventId=${eventId}, messageType=${messageType}, sessionId=${sessionId}`);
+        // 减少日志输出 - 只记录重要事件
+        if (eventId !== 200) { // 不记录音频数据发送
+            console.log(`编码消息: eventId=${eventId}, messageType=${messageType}`);
+        }
         
         const encoder = new TextEncoder();
         
@@ -390,7 +406,10 @@ class RealtimeClient {
         
         result.set(payloadBytes, offset);
         
-        console.log('编码完成，总长度:', totalLength, '压缩后payload长度:', payloadBytes.length);
+        // 只记录非音频消息的编码信息
+        if (eventId !== 200) {
+            console.log('编码完成，总长度:', totalLength, '压缩后payload长度:', payloadBytes.length);
+        }
         return result.buffer;
     }
     
@@ -466,7 +485,10 @@ class RealtimeClient {
     }
     
     parseResponse(buffer) {
-        console.log('解析响应，长度:', buffer.byteLength);
+        // 减少日志输出频率
+        if (Math.random() < 0.1) { // 只记录10%的响应
+            console.log('解析响应，长度:', buffer.byteLength);
+        }
         
         const view = new DataView(buffer);
         const uint8View = new Uint8Array(buffer);
@@ -479,8 +501,6 @@ class RealtimeClient {
         const serialization = (uint8View[2] >> 4) & 0x0F;
         const compression = uint8View[2] & 0x0F;
         
-        console.log('协议版本:', protocolVersion, 'Header大小:', headerSize, '消息类型:', messageType, 'Flags:', flags);
-        
         let offset = headerSize * 4;
         let eventId = null;
         let sessionId = null;
@@ -489,7 +509,10 @@ class RealtimeClient {
         if (flags & 0x04) {
             eventId = view.getUint32(offset, false); // Big endian
             offset += 4;
-            console.log('事件ID:', eventId);
+            // 只记录重要事件ID
+            if (eventId !== 200 && eventId !== 352) {
+                console.log('事件ID:', eventId);
+            }
         }
         
         // Parse session ID
@@ -688,7 +711,7 @@ class RealtimeClient {
                 }
             },
             dialog: {
-                bot_name: currentGf.name,
+                bot_name: "小雅", // 统一使用小雅，通过system_role区分性格
                 system_role: systemRole,
                 speaking_style: speakingStyle,
                 extra: {
@@ -719,8 +742,6 @@ class RealtimeClient {
         try {
             if (!this.audioContext || !audioBuffer || audioBuffer.byteLength < 8) return;
             
-            console.log('播放音频，长度:', audioBuffer.byteLength);
-            
             // 尝试直接解码（如果是标准音频格式）
             try {
                 const audioData = await this.audioContext.decodeAudioData(audioBuffer.slice());
@@ -728,10 +749,9 @@ class RealtimeClient {
                 source.buffer = audioData;
                 source.connect(this.audioContext.destination);
                 source.start();
-                console.log('音频播放成功');
                 return;
             } catch (e) {
-                console.log('标准音频解码失败，尝试PCM解码');
+                // 静默处理，尝试PCM解码
             }
             
             // 尝试作为PCM数据处理 (24kHz, Float32)
@@ -750,11 +770,13 @@ class RealtimeClient {
                 source.buffer = audioData;
                 source.connect(this.audioContext.destination);
                 source.start();
-                console.log('PCM音频播放成功');
             }
             
         } catch (error) {
-            console.error('播放音频失败:', error);
+            // 减少错误日志输出
+            if (Math.random() < 0.1) {
+                console.error('播放音频失败:', error.message);
+            }
         }
     }
     
@@ -820,7 +842,9 @@ class RealtimeClient {
         this.isRecording = true;
         this.audioBuffer = [];
         this.bufferSize = 0;
-        this.targetBufferSize = 3200; // 200ms at 16kHz
+        this.targetBufferSize = 8000; // 500ms at 16kHz - 大幅减少发送频率
+        this.lastSendTime = 0;
+        this.minSendInterval = 300; // 最小发送间隔300ms
         
         if (this.audioContext.state === 'suspended') {
             this.audioContext.resume();
@@ -838,18 +862,38 @@ class RealtimeClient {
             const inputBuffer = event.inputBuffer;
             const inputData = inputBuffer.getChannelData(0);
             
-            // 累积音频数据到缓冲区
-            const pcmData = this.convertToPCM16(inputData);
-            this.audioBuffer.push(pcmData);
-            this.bufferSize += pcmData.length;
+            // 检测音频活动度
+            const audioLevel = this.getAudioLevel(inputData);
             
-            // 当缓冲区达到目标大小时发送
-            if (this.bufferSize >= this.targetBufferSize) {
+            // 只有在有足够音频活动时才处理
+            if (audioLevel > 0.01) {
+                const pcmData = this.convertToPCM16(inputData);
+                this.audioBuffer.push(pcmData);
+                this.bufferSize += pcmData.length;
+            }
+            
+            // 检查是否应该发送（时间和大小条件）
+            const now = Date.now();
+            const shouldSend = (
+                this.bufferSize >= this.targetBufferSize || 
+                (this.bufferSize > 1600 && now - this.lastSendTime > this.minSendInterval)
+            );
+            
+            if (shouldSend && now - this.lastSendTime > this.minSendInterval) {
                 this.flushAudioBuffer();
+                this.lastSendTime = now;
             }
         };
         
         this.setupVolumeIndicator();
+    }
+    
+    getAudioLevel(samples) {
+        let sum = 0;
+        for (let i = 0; i < samples.length; i++) {
+            sum += Math.abs(samples[i]);
+        }
+        return sum / samples.length;
     }
     
     flushAudioBuffer() {
