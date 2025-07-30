@@ -51,6 +51,11 @@ Thumbs.db
 config.py
 local-config.js
 
+# Python files (not needed for web version)
+*.py
+requirements.txt
+venv/
+
 # Build files
 dist/
 build/
