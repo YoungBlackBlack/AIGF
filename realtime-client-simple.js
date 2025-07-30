@@ -13,11 +13,11 @@ class RealtimeClient {
         this.isMuted = false;
         this.audioProcessor = null;
         
-        // API配置 - 生产环境使用环境变量
+        // API配置 - 自动检测部署环境
         this.config = {
-            appId: process.env.DOUBAO_APP_ID || '9047255535',
-            accessKey: process.env.DOUBAO_ACCESS_KEY || '8YrYKqRMJmIYslYKYhBoxki-yhHnYN7U',
-            url: window.location.hostname === 'localhost' ? 'ws://localhost:8080' : 'wss://your-websocket-server.com'
+            appId: '9047255535',
+            accessKey: '8YrYKqRMJmIYslYKYhBoxki-yhHnYN7U',
+            url: this.getWebSocketUrl()
         };
         
         this.initAudio();
@@ -29,6 +29,24 @@ class RealtimeClient {
             const v = c == 'x' ? r : (r & 0x3 | 0x8);
             return v.toString(16);
         });
+    }
+    
+    getWebSocketUrl() {
+        const hostname = window.location.hostname;
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        
+        // 本地开发
+        if (hostname === 'localhost' || hostname === '127.0.0.1') {
+            return 'ws://localhost:8080';
+        }
+        
+        // Render.com 部署
+        if (hostname.includes('.onrender.com')) {
+            return `${protocol}//${hostname}`;
+        }
+        
+        // 其他部署环境
+        return `${protocol}//${hostname}:8080`;
     }
     
     async initAudio() {
