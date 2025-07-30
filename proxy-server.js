@@ -1,16 +1,67 @@
 const WebSocket = require('ws');
 const http = require('http');
 const url = require('url');
+const fs = require('fs');
+const path = require('path');
+
+// 获取文件的MIME类型
+function getMimeType(filePath) {
+    const ext = path.extname(filePath).toLowerCase();
+    const mimeTypes = {
+        '.html': 'text/html',
+        '.js': 'text/javascript',
+        '.css': 'text/css',
+        '.json': 'application/json',
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.svg': 'image/svg+xml',
+        '.ico': 'image/x-icon'
+    };
+    return mimeTypes[ext] || 'text/plain';
+}
 
 // 创建HTTP服务器
 const server = http.createServer((req, res) => {
-    res.writeHead(200, { 
-        'Content-Type': 'text/plain',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type'
+    const parsedUrl = url.parse(req.url, true);
+    let pathname = parsedUrl.pathname;
+    
+    // 默认页面
+    if (pathname === '/') {
+        pathname = '/index.html';
+    }
+    
+    // 提供静态文件
+    const filePath = path.join(__dirname, pathname);
+    
+    // 安全检查：确保文件在项目目录内
+    if (!filePath.startsWith(__dirname)) {
+        res.writeHead(403, { 'Content-Type': 'text/plain' });
+        res.end('Forbidden');
+        return;
+    }
+    
+    fs.readFile(filePath, (err, data) => {
+        if (err) {
+            if (err.code === 'ENOENT') {
+                res.writeHead(404, { 'Content-Type': 'text/plain' });
+                res.end('File not found');
+            } else {
+                res.writeHead(500, { 'Content-Type': 'text/plain' });
+                res.end('Server error');
+            }
+            return;
+        }
+        
+        const mimeType = getMimeType(filePath);
+        res.writeHead(200, { 
+            'Content-Type': mimeType,
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type'
+        });
+        res.end(data);
     });
-    res.end('WebSocket代理服务器正在运行');
 });
 
 // 创建WebSocket服务器
