@@ -660,13 +660,14 @@ class RealtimeClient {
                         document.getElementById('avatar').classList.add('speaking');
                         break;
                         
-                    case 352: // TTS_RESPONSE
-                        console.log('收到TTS音频数据, messageType:', message.messageType);
-                        // TTS音频数据，直接播放
+                    case 352: // TTS_RESPONSE / 端到端音频回复
+                        console.log('收到音频数据, messageType:', message.messageType, 'payload长度:', message.payload?.length);
+                        console.log('音频数据前16字节:', message.payload ? Array.from(message.payload.slice(0, 16)).map(b => b.toString(16).padStart(2, '0')).join(' ') : 'null');
+                        
                         if (message.payload && message.payload.length > 0) {
                             this.playAudio(message.payload.buffer || message.payload);
                         } else {
-                            console.log('TTS音频数据为空');
+                            console.log('音频数据为空');
                         }
                         break;
                         
@@ -710,7 +711,16 @@ class RealtimeClient {
                         
                     default:
                         // 记录所有未处理的事件，帮助调试
-                        console.log('未处理的事件:', message.eventId, message.payload);
+                        console.log('未处理的事件:', message.eventId, 'messageType:', message.messageType, 'payload长度:', message.payload?.length);
+                        
+                        // 检查是否可能是音频数据
+                        if (message.payload && message.payload.length > 100) {
+                            console.log('发现可能的音频数据在事件', message.eventId);
+                            console.log('音频数据开头:', Array.from(message.payload.slice(0, 8)).map(b => b.toString(16).padStart(2, '0')).join(' '));
+                            
+                            // 尝试播放
+                            this.playAudio(message.payload.buffer || message.payload);
+                        }
                         
                         // 如果payload包含文本内容，尝试显示
                         if (message.payload && typeof message.payload === 'object') {
@@ -806,46 +816,104 @@ class RealtimeClient {
             }
             
             console.log('尝试播放音频，长度:', buffer.byteLength);
+            console.log('音频数据开头:', Array.from(new Uint8Array(buffer.slice(0, 8))).map(b => b.toString(16).padStart(2, '0')).join(' '));
             
-            if (buffer.byteLength < 8) {
+            if (buffer.byteLength < 4) {
                 console.log('音频数据太短，跳过播放');
                 return;
             }
             
-            // 尝试直接解码（如果是标准音频格式）
+            // 方法1: 尝试标准音频格式（MP3, WAV, OGG等）
             try {
                 const audioData = await this.audioContext.decodeAudioData(buffer.slice());
                 const source = this.audioContext.createBufferSource();
                 source.buffer = audioData;
                 source.connect(this.audioContext.destination);
                 source.start();
-                console.log('标准音频格式播放成功');
+                console.log('✅ 标准音频格式播放成功');
                 return;
             } catch (e) {
-                console.log('标准格式解码失败，尝试PCM:', e.message);
+                console.log('标准格式解码失败:', e.message);
             }
             
-            // 尝试作为PCM数据处理 (24kHz, Float32)
-            const view = new DataView(buffer);
-            const sampleCount = buffer.byteLength / 4;
-            
-            if (sampleCount > 0) {
-                const audioData = this.audioContext.createBuffer(1, sampleCount, 24000);
-                const channelData = audioData.getChannelData(0);
+            // 方法2: 尝试PCM Float32 (24kHz)
+            try {
+                const view = new DataView(buffer);
+                const sampleCount = buffer.byteLength / 4;
                 
-                for (let i = 0; i < sampleCount; i++) {
-                    channelData[i] = view.getFloat32(i * 4, true);
+                if (sampleCount > 10) {
+                    const audioData = this.audioContext.createBuffer(1, sampleCount, 24000);
+                    const channelData = audioData.getChannelData(0);
+                    
+                    for (let i = 0; i < sampleCount; i++) {
+                        channelData[i] = view.getFloat32(i * 4, true);
+                    }
+                    
+                    const source = this.audioContext.createBufferSource();
+                    source.buffer = audioData;
+                    source.connect(this.audioContext.destination);
+                    source.start();
+                    console.log('✅ PCM Float32 播放成功');
+                    return;
                 }
-                
-                const source = this.audioContext.createBufferSource();
-                source.buffer = audioData;
-                source.connect(this.audioContext.destination);
-                source.start();
-                console.log('PCM音频播放成功');
+            } catch (e) {
+                console.log('PCM Float32 解码失败:', e.message);
             }
+            
+            // 方法3: 尝试PCM Int16 (24kHz)
+            try {
+                const view = new DataView(buffer);
+                const sampleCount = buffer.byteLength / 2;
+                
+                if (sampleCount > 10) {
+                    const audioData = this.audioContext.createBuffer(1, sampleCount, 24000);
+                    const channelData = audioData.getChannelData(0);
+                    
+                    for (let i = 0; i < sampleCount; i++) {
+                        const sample = view.getInt16(i * 2, true);
+                        channelData[i] = sample / 32768.0; // 转换为float32
+                    }
+                    
+                    const source = this.audioContext.createBufferSource();
+                    source.buffer = audioData;
+                    source.connect(this.audioContext.destination);
+                    source.start();
+                    console.log('✅ PCM Int16 播放成功');
+                    return;
+                }
+            } catch (e) {
+                console.log('PCM Int16 解码失败:', e.message);
+            }
+            
+            // 方法4: 尝试8kHz采样率
+            try {
+                const view = new DataView(buffer);
+                const sampleCount = buffer.byteLength / 2;
+                
+                if (sampleCount > 10) {
+                    const audioData = this.audioContext.createBuffer(1, sampleCount, 8000);
+                    const channelData = audioData.getChannelData(0);
+                    
+                    for (let i = 0; i < sampleCount; i++) {
+                        const sample = view.getInt16(i * 2, true);
+                        channelData[i] = sample / 32768.0;
+                    }
+                    
+                    const source = this.audioContext.createBufferSource();
+                    source.buffer = audioData;
+                    source.connect(this.audioContext.destination);
+                    source.start();
+                    console.log('✅ PCM 8kHz 播放成功');
+                    return;
+                }
+            } catch (e) {
+                console.log('PCM 8kHz 解码失败:', e.message);
+            }
+            
+            console.log('❌ 所有音频格式尝试失败');
             
         } catch (error) {
-            console.error('播放音频失败:', error.message);
+            console.error('播放音频失败:', error);
         }
     }
     
