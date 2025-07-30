@@ -661,9 +661,12 @@ class RealtimeClient {
                         break;
                         
                     case 352: // TTS_RESPONSE
-                        console.log('收到TTS音频数据');
-                        if (message.messageType === 0x0B) { // SERVER_ACK
+                        console.log('收到TTS音频数据, messageType:', message.messageType);
+                        // TTS音频数据，直接播放
+                        if (message.payload && message.payload.length > 0) {
                             this.playAudio(message.payload.buffer || message.payload);
+                        } else {
+                            console.log('TTS音频数据为空');
                         }
                         break;
                         
@@ -689,8 +692,36 @@ class RealtimeClient {
                         }
                         break;
                         
+                    case 551: // CHAT_FINISHED 或其他聊天相关事件
+                        console.log('聊天完成事件:', message.payload);
+                        if (message.payload?.content) {
+                            this.addMessage('bot', message.payload.content);
+                        }
+                        break;
+                        
+                    case 250: // 可能的对话回复事件
+                    case 251:
+                    case 252:
+                        console.log('对话事件:', message.eventId, message.payload);
+                        if (message.payload?.content || message.payload?.text) {
+                            this.addMessage('bot', message.payload.content || message.payload.text);
+                        }
+                        break;
+                        
                     default:
+                        // 记录所有未处理的事件，帮助调试
                         console.log('未处理的事件:', message.eventId, message.payload);
+                        
+                        // 如果payload包含文本内容，尝试显示
+                        if (message.payload && typeof message.payload === 'object') {
+                            if (message.payload.content) {
+                                console.log('发现未知事件中的content:', message.payload.content);
+                                this.addMessage('bot', message.payload.content);
+                            } else if (message.payload.text) {
+                                console.log('发现未知事件中的text:', message.payload.text);
+                                this.addMessage('bot', message.payload.text);
+                            }
+                        }
                 }
             }
             
@@ -763,23 +794,40 @@ class RealtimeClient {
     
     async playAudio(audioBuffer) {
         try {
-            if (!this.audioContext || !audioBuffer || audioBuffer.byteLength < 8) return;
+            if (!this.audioContext || !audioBuffer) {
+                console.log('播放音频失败：audioContext或audioBuffer为空');
+                return;
+            }
+            
+            // 确保audioBuffer是ArrayBuffer类型
+            let buffer = audioBuffer;
+            if (audioBuffer.buffer) {
+                buffer = audioBuffer.buffer;
+            }
+            
+            console.log('尝试播放音频，长度:', buffer.byteLength);
+            
+            if (buffer.byteLength < 8) {
+                console.log('音频数据太短，跳过播放');
+                return;
+            }
             
             // 尝试直接解码（如果是标准音频格式）
             try {
-                const audioData = await this.audioContext.decodeAudioData(audioBuffer.slice());
+                const audioData = await this.audioContext.decodeAudioData(buffer.slice());
                 const source = this.audioContext.createBufferSource();
                 source.buffer = audioData;
                 source.connect(this.audioContext.destination);
                 source.start();
+                console.log('标准音频格式播放成功');
                 return;
             } catch (e) {
-                // 静默处理，尝试PCM解码
+                console.log('标准格式解码失败，尝试PCM:', e.message);
             }
             
             // 尝试作为PCM数据处理 (24kHz, Float32)
-            const view = new DataView(audioBuffer);
-            const sampleCount = audioBuffer.byteLength / 4;
+            const view = new DataView(buffer);
+            const sampleCount = buffer.byteLength / 4;
             
             if (sampleCount > 0) {
                 const audioData = this.audioContext.createBuffer(1, sampleCount, 24000);
@@ -793,13 +841,11 @@ class RealtimeClient {
                 source.buffer = audioData;
                 source.connect(this.audioContext.destination);
                 source.start();
+                console.log('PCM音频播放成功');
             }
             
         } catch (error) {
-            // 减少错误日志输出
-            if (Math.random() < 0.1) {
-                console.error('播放音频失败:', error.message);
-            }
+            console.error('播放音频失败:', error.message);
         }
     }
     
