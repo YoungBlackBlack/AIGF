@@ -282,7 +282,17 @@ class RealtimeClient {
             console.log('WebSocket连接已建立');
             this.isConnected = true;
             this.updateStatus('已连接');
-            this.sendStartConnection();
+            
+            // 发送连接建立消息
+            this.sendStartConnection().then(() => {
+                // 如果之前在通话中，等待连接建立后自动恢复会话
+                if (this.isInCall && !this.sessionId) {
+                    console.log('检测到通话状态，自动恢复会话');
+                    setTimeout(() => {
+                        this.startSession();
+                    }, 1000);
+                }
+            });
         };
         
         this.ws.onmessage = async (event) => {
@@ -294,8 +304,20 @@ class RealtimeClient {
             console.log('WebSocket连接关闭:', event.code, event.reason);
             this.isConnected = false;
             this.updateStatus('连接已断开');
+            
             if (this.isInCall) {
-                this.endCall();
+                // 如果是在通话中断开，尝试重连
+                if (event.code === 1000 || event.code === 1006) {
+                    console.log('检测到通话中断开，3秒后尝试重连');
+                    this.updateStatus('重新连接中...');
+                    setTimeout(() => {
+                        if (this.isInCall) { // 确保用户还想继续通话
+                            this.connect();
+                        }
+                    }, 3000);
+                } else {
+                    this.endCall();
+                }
             }
         };
         
@@ -681,6 +703,7 @@ class RealtimeClient {
         console.log('发送StartConnection事件');
         const message = await this.encodeMessage(1, '{}'); // START_CONNECTION = 1
         this.ws.send(message);
+        return Promise.resolve(); // 返回Promise以支持then调用
     }
     
     async startSession() {
@@ -947,13 +970,30 @@ class RealtimeClient {
             this.audioProcessor = null;
         }
         
-        // 重新生成会话ID
+        // 重新生成会话ID和连接ID
         this.sessionId = this.generateUUID();
+        this.connectId = this.generateUUID();
+        
+        // 如果WebSocket连接有问题，重新连接
+        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+            console.log('WebSocket连接异常，重新连接');
+            this.isConnected = false;
+            this.connect();
+            return;
+        }
         
         // 延迟一下再重新开始会话
         setTimeout(() => {
             if (this.isConnected && this.ws && this.ws.readyState === WebSocket.OPEN) {
-                this.startSession();
+                // 先发送StartConnection再开始会话
+                this.sendStartConnection().then(() => {
+                    setTimeout(() => {
+                        this.startSession();
+                    }, 500);
+                });
+            } else {
+                console.log('连接状态异常，重新连接');
+                this.connect();
             }
         }, 1000);
     }
