@@ -405,6 +405,16 @@ class RealtimeClient {
                     const jsonStr = decoder.decode(message.payload);
                     console.log('JSON字符串:', jsonStr);
                     message.payload = JSON.parse(jsonStr);
+                    
+                    // 检查是否有错误信息
+                    if (message.payload.error) {
+                        console.error('服务器返回错误:', message.payload.error);
+                        if (message.payload.error.includes('non-exist session')) {
+                            console.log('会话不存在，尝试重新开始会话');
+                            this.handleSessionError();
+                            return;
+                        }
+                    }
                 } catch (e) {
                     console.error('JSON解析失败:', e);
                 }
@@ -426,7 +436,11 @@ class RealtimeClient {
                         
                     case 150: // SESSION_STARTED
                         console.log('会话已开始:', message.payload);
-                        this.sessionId = message.payload?.dialog_id || this.generateUUID();
+                        // 保持原有的sessionId，不要改变它
+                        if (message.payload?.dialog_id) {
+                            console.log('服务器返回的dialog_id:', message.payload.dialog_id);
+                            console.log('当前使用的sessionId:', this.sessionId);
+                        }
                         this.updateStatus('通话中');
                         this.startCall();
                         this.addMessage('bot', '嗨～我是小雅，很高兴听到你的声音呢！💕');
@@ -672,6 +686,27 @@ class RealtimeClient {
         console.log('发送FinishSession事件');
         const message = await this.encodeMessage(102, '{}', this.sessionId); // FINISH_SESSION = 102
         this.ws.send(message);
+    }
+    
+    handleSessionError() {
+        console.log('处理会话错误，重新开始会话');
+        this.updateStatus('重新连接中...');
+        
+        // 停止当前录音
+        if (this.audioProcessor) {
+            this.audioProcessor.disconnect();
+            this.audioProcessor = null;
+        }
+        
+        // 重新生成会话ID
+        this.sessionId = this.generateUUID();
+        
+        // 延迟一下再重新开始会话
+        setTimeout(() => {
+            if (this.isConnected && this.ws && this.ws.readyState === WebSocket.OPEN) {
+                this.startSession();
+            }
+        }, 1000);
     }
     
     addMessage(sender, text) {
