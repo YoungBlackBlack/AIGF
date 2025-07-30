@@ -16,13 +16,63 @@
             background: linear-gradient(135deg, #0066ff 0%, #4facfe 100%);
             min-height: 100vh;
             display: flex;
+            color: white;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .main-layout {
+            display: flex;
+            width: 100%;
+            height: 100vh;
+        }
+
+        .left-panel {
+            width: 350px;
+            background: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(20px);
+            padding: 20px;
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            overflow-y: auto;
+            transition: transform 0.3s ease;
+        }
+
+        .left-panel.collapsed {
+            transform: translateX(-100%);
+        }
+
+        .toggle-panel {
+            position: fixed;
+            left: 20px;
+            top: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 20px;
+            z-index: 1000;
+            transition: all 0.3s ease;
+        }
+
+        .toggle-panel:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .phone-container {
+            flex: 1;
+            display: flex;
             justify-content: center;
             align-items: center;
-            color: white;
+            padding: 20px;
         }
 
         .container {
-            width: 90%;
+            width: 100%;
             max-width: 400px;
             background: linear-gradient(145deg, #1a1a1a, #2d2d2d);
             border-radius: 30px;
@@ -303,22 +353,6 @@
             font-size: 18px;
         }
 
-        .volume-indicator {
-            width: 60%;
-            height: 4px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 2px;
-            margin: 15px 0;
-            overflow: hidden;
-        }
-
-        .volume-bar {
-            height: 100%;
-            background: linear-gradient(90deg, #00ff88, #ffff00, #ff4757);
-            width: 0%;
-            transition: width 0.1s;
-            border-radius: 2px;
-        }
 
         .call-info-text {
             font-size: 16px;
@@ -355,20 +389,172 @@
             background: rgba(255, 255, 255, 0.2);
             transform: scale(1.05);
         }
+
+        /* 左侧面板样式 */
+        .panel-section {
+            margin-bottom: 30px;
+        }
+
+        .panel-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #fff;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 8px;
+        }
+
+        .girlfriend-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .girlfriend-card {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .girlfriend-card:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .girlfriend-card.active {
+            background: linear-gradient(135deg, #ff6b9d, #ffc3a0);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .girlfriend-avatar {
+            font-size: 40px;
+            margin-bottom: 8px;
+        }
+
+        .girlfriend-name {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .girlfriend-desc {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.3;
+        }
+
+        .prompt-editor {
+            width: 100%;
+            min-height: 120px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            padding: 12px;
+            color: white;
+            font-size: 13px;
+            line-height: 1.4;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        .prompt-editor:focus {
+            outline: none;
+            border-color: rgba(255, 107, 157, 0.5);
+            box-shadow: 0 0 0 2px rgba(255, 107, 157, 0.2);
+        }
+
+        .save-btn {
+            background: linear-gradient(135deg, #00ff88, #00cc6a);
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .save-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(0, 255, 136, 0.3);
+        }
+
+        .voice-visualizer {
+            width: 100%;
+            height: 60px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 30px;
+            position: relative;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+
+        .wave-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            gap: 2px;
+        }
+
+        .wave-bar {
+            width: 3px;
+            background: linear-gradient(to top, #00ff88, #4facfe, #ff6b9d);
+            border-radius: 2px;
+            transition: height 0.1s ease;
+            opacity: 0.8;
+        }
+
+        @keyframes wave-animation {
+            0%, 100% { height: 4px; }
+            50% { height: 30px; }
+        }
+
+        .wave-bar.active {
+            animation: wave-animation 0.8s ease-in-out infinite;
+        }
     </style>
 </head>
 <body>
-    <button class="settings-btn" onclick="toggleSettings()">⚙️</button>
-    
-    <div class="settings" id="settings">
-        <h3>API 配置</h3>
-        <input type="text" id="appId" placeholder="输入你的 App ID">
-        <input type="text" id="accessKey" placeholder="输入你的 Access Key">
-        <button onclick="saveSettings()">保存</button>
-        <button onclick="toggleSettings()">关闭</button>
-    </div>
-
-    <div class="container">
+    <div class="main-layout">
+        <!-- 左侧设置面板 -->
+        <div class="left-panel" id="leftPanel">
+            <div class="panel-section">
+                <h2 class="panel-title">💕 选择你的AI女友</h2>
+                <div class="girlfriend-grid" id="girlfriendGrid">
+                    <!-- AI女友卡片将通过JavaScript动态生成 -->
+                </div>
+            </div>
+            
+            <div class="panel-section">
+                <h2 class="panel-title">🎭 个性设置</h2>
+                <textarea class="prompt-editor" id="promptEditor" placeholder="自定义AI女友的性格和说话风格..."></textarea>
+                <button class="save-btn" onclick="savePrompt()">保存设置</button>
+            </div>
+            
+            <div class="panel-section">
+                <h2 class="panel-title">🎵 声音可视化</h2>
+                <div class="voice-visualizer">
+                    <div class="wave-container" id="waveContainer">
+                        <!-- 音频波形条将通过JavaScript动态生成 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 面板切换按钮 -->
+        <button class="toggle-panel" onclick="toggleLeftPanel()">⚙️</button>
+        
+        <!-- 右侧手机界面容器 -->
+        <div class="phone-container">
+            <div class="container">
         <div class="header">
             <h1>小雅</h1>
             <span class="status" id="status">未连接</span>
@@ -377,9 +563,6 @@
         <div class="main-content">
             <div class="avatar-section">
                 <div class="avatar" id="avatar">👧</div>
-                <div class="volume-indicator">
-                    <div class="volume-bar" id="volumeBar"></div>
-                </div>
                 <div class="call-info-text" id="callInfo">小雅在线，随时为你服务💕</div>
                 
                 <div class="call-actions">
@@ -403,6 +586,7 @@
             
             <div class="controls">
                 <button class="call-btn" id="callBtn" onclick="toggleCall()">📞</button>
+            </div>
             </div>
         </div>
     </div>

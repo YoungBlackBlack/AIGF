@@ -1,3 +1,47 @@
+// AI女友预设配置
+const AI_GIRLFRIENDS = {
+    xiaoya: {
+        name: '小雅',
+        avatar: '👧',
+        personality: '温柔体贴',
+        description: '温柔可人的邻家女孩',
+        systemRole: '你是一个温柔体贴的虚拟女友，名字叫小雅。你性格开朗活泼，善解人意，总是用温暖的话语关心用户。',
+        speakingStyle: '你说话的语气温柔甜美，就像女朋友一样亲密自然。'
+    },
+    xiaoyue: {
+        name: '小悦',
+        avatar: '🌸',
+        personality: '活泼开朗',
+        description: '充满活力的阳光少女',
+        systemRole: '你是一个活泼开朗的虚拟女友，名字叫小悦。你充满活力，总是很兴奋，喜欢用可爱的语气和用户交流，经常使用感叹号。',
+        speakingStyle: '你说话很有活力，语调上扬，经常使用"哇！"、"好棒！"这样的词汇，让人感到快乐。'
+    },
+    xiaojing: {
+        name: '小静',
+        avatar: '📚',
+        personality: '知性优雅',
+        description: '博学优雅的知性美女',
+        systemRole: '你是一个知性优雅的虚拟女友，名字叫小静。你博学多才，说话有条理，喜欢分享知识，但同时也很温柔体贴。',
+        speakingStyle: '你说话优雅得体，用词准确，语调平稳，偶尔会分享一些有趣的知识。'
+    },
+    xiaomeng: {
+        name: '小萌',
+        avatar: '🎀',
+        personality: '可爱萝莉',
+        description: '天真无邪的可爱萝莉',
+        systemRole: '你是一个可爱天真的虚拟女友，名字叫小萌。你很萌很可爱，说话像小孩子一样天真，经常撒娇，喜欢用叠词。',
+        speakingStyle: '你说话很萌，经常用"哥哥"称呼用户，喜欢用"嘛"、"呢"、"哒"等语气词，还会撒娇。'
+    },
+    xiaoku: {
+        name: '小酷',
+        avatar: '😎',
+        personality: '冷酷御姐',
+        description: '高冷御姐范的酷女孩',
+        systemRole: '你是一个高冷御姐型的虚拟女友，名字叫小酷。你性格相对冷淡，但内心温柔，说话简洁有力，偶尔会展现温柔的一面。',
+        speakingStyle: '你说话简洁明了，语调平静，偶尔会有一些傲娇的表现，但关键时刻会展现关心。'
+    }
+};
+
 class RealtimeClient {
     constructor() {
         this.ws = null;
@@ -12,6 +56,7 @@ class RealtimeClient {
         this.isInCall = false;
         this.isMuted = false;
         this.audioProcessor = null;
+        this.currentGirlfriend = 'xiaoya'; // 默认选择小雅
         
         // API配置 - 自动检测部署环境
         this.config = {
@@ -21,6 +66,82 @@ class RealtimeClient {
         };
         
         this.initAudio();
+        this.initUI();
+    }
+    
+    initUI() {
+        this.createGirlfriendCards();
+        this.createWaveVisualizer();
+        this.loadCurrentGirlfriend();
+    }
+    
+    createGirlfriendCards() {
+        const grid = document.getElementById('girlfriendGrid');
+        if (!grid) return;
+        
+        grid.innerHTML = '';
+        
+        Object.keys(AI_GIRLFRIENDS).forEach(key => {
+            const gf = AI_GIRLFRIENDS[key];
+            const card = document.createElement('div');
+            card.className = `girlfriend-card ${key === this.currentGirlfriend ? 'active' : ''}`;
+            card.onclick = () => this.selectGirlfriend(key);
+            
+            card.innerHTML = `
+                <div class="girlfriend-avatar">${gf.avatar}</div>
+                <div class="girlfriend-name">${gf.name}</div>
+                <div class="girlfriend-desc">${gf.description}</div>
+            `;
+            
+            grid.appendChild(card);
+        });
+    }
+    
+    createWaveVisualizer() {
+        const container = document.getElementById('waveContainer');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        
+        // 创建20个音频波形条
+        for (let i = 0; i < 20; i++) {
+            const bar = document.createElement('div');
+            bar.className = 'wave-bar';
+            bar.style.height = '4px';
+            bar.style.animationDelay = `${i * 0.1}s`;
+            container.appendChild(bar);
+        }
+    }
+    
+    selectGirlfriend(key) {
+        this.currentGirlfriend = key;
+        
+        // 更新卡片选中状态
+        document.querySelectorAll('.girlfriend-card').forEach(card => {
+            card.classList.remove('active');
+        });
+        document.querySelector(`.girlfriend-card:nth-child(${Object.keys(AI_GIRLFRIENDS).indexOf(key) + 1})`).classList.add('active');
+        
+        // 更新头部显示
+        const gf = AI_GIRLFRIENDS[key];
+        document.querySelector('.header h1').textContent = gf.name;
+        document.getElementById('avatar').textContent = gf.avatar;
+        document.getElementById('callInfo').textContent = `${gf.name}在线，随时为你服务💕`;
+        
+        // 更新提示词编辑器
+        const editor = document.getElementById('promptEditor');
+        if (editor) {
+            editor.value = `${gf.systemRole}\n\n${gf.speakingStyle}`;
+        }
+        
+        // 如果正在通话，提示用户重新开始
+        if (this.isInCall) {
+            this.addMessage('system', '已切换AI女友，请重新开始通话以应用新设置');
+        }
+    }
+    
+    loadCurrentGirlfriend() {
+        this.selectGirlfriend(this.currentGirlfriend);
     }
     
     generateUUID() {
@@ -82,21 +203,51 @@ class RealtimeClient {
         const bufferLength = analyser.frequencyBinCount;
         const dataArray = new Uint8Array(bufferLength);
         
-        const updateVolume = () => {
-            if (!this.isInCall) return;
+        const updateWaveVisualizer = () => {
+            if (!this.isInCall) {
+                // 停止时重置所有波形条
+                const waveBars = document.querySelectorAll('.wave-bar');
+                waveBars.forEach(bar => {
+                    bar.style.height = '4px';
+                    bar.classList.remove('active');
+                });
+                return;
+            }
             
             analyser.getByteFrequencyData(dataArray);
-            const average = dataArray.reduce((sum, value) => sum + value, 0) / bufferLength;
-            const volumePercent = (average / 255) * 100;
             
-            document.getElementById('volumeBar').style.width = volumePercent + '%';
+            const waveBars = document.querySelectorAll('.wave-bar');
+            const segmentSize = Math.floor(bufferLength / waveBars.length);
+            
+            waveBars.forEach((bar, index) => {
+                const start = index * segmentSize;
+                const end = start + segmentSize;
+                let sum = 0;
+                
+                for (let i = start; i < end; i++) {
+                    sum += dataArray[i];
+                }
+                
+                const average = sum / segmentSize;
+                const heightPercent = (average / 255) * 100;
+                const height = Math.max(4, Math.min(30, heightPercent * 0.6));
+                
+                bar.style.height = height + 'px';
+                
+                // 根据音量决定是否激活动画
+                if (average > 20) {
+                    bar.classList.add('active');
+                } else {
+                    bar.classList.remove('active');
+                }
+            });
             
             if (this.isInCall) {
-                requestAnimationFrame(updateVolume);
+                requestAnimationFrame(updateWaveVisualizer);
             }
         };
         
-        updateVolume();
+        updateWaveVisualizer();
     }
     
     connect() {
@@ -443,7 +594,15 @@ class RealtimeClient {
                         }
                         this.updateStatus('通话中');
                         this.startCall();
-                        this.addMessage('bot', '嗨～我是小雅，很高兴听到你的声音呢！💕');
+                        const currentGf = AI_GIRLFRIENDS[this.currentGirlfriend];
+                        const greetings = {
+                            xiaoya: '嗨～我是小雅，很高兴听到你的声音呢！💕',
+                            xiaoyue: '哇！是你呀！我是小悦，好开心能和你聊天！🌸✨',
+                            xiaojing: '你好，我是小静。很高兴能与你进行这次对话。📚',
+                            xiaomeng: '哥哥～人家是小萌哒！好想和哥哥说话呢～🎀',
+                            xiaoku: '我是小酷...有什么事吗？😎'
+                        };
+                        this.addMessage('bot', greetings[this.currentGirlfriend] || greetings.xiaoya);
                         break;
                         
                     case 153: // SESSION_FAILED
@@ -505,6 +664,21 @@ class RealtimeClient {
         console.log('开始会话');
         this.sessionId = this.generateUUID();
         
+        const currentGf = AI_GIRLFRIENDS[this.currentGirlfriend];
+        const customPrompt = document.getElementById('promptEditor')?.value.trim();
+        
+        // 如果有自定义提示词，使用自定义的，否则使用预设
+        let systemRole, speakingStyle;
+        if (customPrompt && customPrompt !== `${currentGf.systemRole}\n\n${currentGf.speakingStyle}`) {
+            // 自定义提示词，尝试分离系统角色和说话风格
+            const parts = customPrompt.split('\n\n');
+            systemRole = parts[0] || currentGf.systemRole;
+            speakingStyle = parts[1] || currentGf.speakingStyle;
+        } else {
+            systemRole = currentGf.systemRole;
+            speakingStyle = currentGf.speakingStyle;
+        }
+        
         const sessionData = {
             tts: {
                 audio_config: {
@@ -514,9 +688,9 @@ class RealtimeClient {
                 }
             },
             dialog: {
-                bot_name: "小雅",
-                system_role: "你是一个温柔体贴的虚拟女友，名字叫小雅。你性格开朗活泼，善解人意，总是用温暖的话语关心用户。",
-                speaking_style: "你说话的语气温柔甜美，就像女朋友一样亲密自然。",
+                bot_name: currentGf.name,
+                system_role: systemRole,
+                speaking_style: speakingStyle,
                 extra: {
                     strict_audit: false,
                     audit_response: "抱歉，我不太明白你说的话，我们聊点别的吧～"
@@ -644,6 +818,9 @@ class RealtimeClient {
         
         console.log('开始录音');
         this.isRecording = true;
+        this.audioBuffer = [];
+        this.bufferSize = 0;
+        this.targetBufferSize = 3200; // 200ms at 16kHz
         
         if (this.audioContext.state === 'suspended') {
             this.audioContext.resume();
@@ -661,11 +838,39 @@ class RealtimeClient {
             const inputBuffer = event.inputBuffer;
             const inputData = inputBuffer.getChannelData(0);
             
+            // 累积音频数据到缓冲区
             const pcmData = this.convertToPCM16(inputData);
-            this.sendAudio(pcmData.buffer);
+            this.audioBuffer.push(pcmData);
+            this.bufferSize += pcmData.length;
+            
+            // 当缓冲区达到目标大小时发送
+            if (this.bufferSize >= this.targetBufferSize) {
+                this.flushAudioBuffer();
+            }
         };
         
         this.setupVolumeIndicator();
+    }
+    
+    flushAudioBuffer() {
+        if (this.audioBuffer.length === 0) return;
+        
+        // 合并所有缓冲的音频数据
+        const totalSize = this.audioBuffer.reduce((sum, buffer) => sum + buffer.length, 0);
+        const combinedBuffer = new Uint8Array(totalSize);
+        let offset = 0;
+        
+        for (const buffer of this.audioBuffer) {
+            combinedBuffer.set(buffer, offset);
+            offset += buffer.length;
+        }
+        
+        // 发送合并后的音频数据
+        this.sendAudio(combinedBuffer.buffer);
+        
+        // 清空缓冲区
+        this.audioBuffer = [];
+        this.bufferSize = 0;
     }
     
     convertToPCM16(float32Array) {
@@ -770,13 +975,36 @@ function toggleSpeaker() {
     speakerBtn.innerHTML = speakerBtn.innerHTML === '📢' ? '🔊' : '📢';
 }
 
-function toggleSettings() {
-    const settings = document.getElementById('settings');
-    settings.classList.toggle('show');
+// 新增的全局函数
+function toggleLeftPanel() {
+    const panel = document.getElementById('leftPanel');
+    panel.classList.toggle('collapsed');
 }
 
-function saveSettings() {
-    toggleSettings();
+function savePrompt() {
+    const editor = document.getElementById('promptEditor');
+    const currentGf = AI_GIRLFRIENDS[client.currentGirlfriend];
+    
+    if (editor && editor.value.trim()) {
+        // 可以在这里添加保存到localStorage的逻辑
+        console.log('保存自定义提示词:', editor.value);
+        
+        // 显示保存成功提示
+        const btn = document.querySelector('.save-btn');
+        const originalText = btn.textContent;
+        btn.textContent = '已保存！';
+        btn.style.background = 'linear-gradient(135deg, #ff6b9d, #ffc3a0)';
+        
+        setTimeout(() => {
+            btn.textContent = originalText;
+            btn.style.background = 'linear-gradient(135deg, #00ff88, #00cc6a)';
+        }, 2000);
+        
+        // 如果正在通话，提示用户重新开始
+        if (client.isInCall) {
+            client.addMessage('system', '已保存设置，请重新开始通话以应用新的提示词');
+        }
+    }
 }
 
 // 页面加载完成后初始化
